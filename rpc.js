@@ -409,48 +409,182 @@ async function handleAutoEvent(message) {
             break;
           }
 
-          // Check for "EPIC TREE" event
-          if (field.name && field.name.includes("AN EPIC TREE HAS JUST GROWN") &&
-              field.value && field.value.includes("Type **CUT**")) {
-            isAutoCatchEvent = true;
-            console.log('🌳 EPIC TREE EVENT DETECTED! Auto-cutting...');
+          // Improved button click implementation for EPIC TREE event
+if (field.name && field.name.includes("AN EPIC TREE HAS JUST GROWN") &&
+    field.value && field.value.includes("Type **CUT**")) {
+  isAutoCatchEvent = true;
+  console.log('🌳 EPIC TREE EVENT DETECTED! Auto-cutting...');
 
-            setTimeout(async () => {
+  setTimeout(async () => {
+    try {
+      if (message.components && message.components.length > 0) {
+        // Enhanced debug information
+        console.log('🔍 Full message debug:');
+        console.log('Message ID:', message.id);
+        console.log('Channel ID:', message.channel.id);
+        console.log('Author ID:', message.author.id);
+        console.log('Components length:', message.components.length);
+        
+        // Log each component in detail
+        message.components.forEach((row, rowIndex) => {
+          console.log(`Row ${rowIndex}:`, {
+            type: row.type,
+            components: row.components?.map(comp => ({
+              type: comp.type,
+              label: comp.label,
+              customId: comp.customId,
+              style: comp.style,
+              disabled: comp.disabled
+            }))
+          });
+        });
+
+        // Try multiple approaches to click the button
+        let buttonClicked = false;
+
+        // Method 1: Try clicking by row and column
+        try {
+          await message.clickButton(0, 0); // Row 0, Column 0
+          console.log('✅ Auto-CUT button clicked successfully (Method 1: row/col)');
+          buttonClicked = true;
+        } catch (error1) {
+          console.log('❌ Method 1 failed:', error1.message);
+
+          // Method 2: Try with custom ID
+          try {
+            await message.clickButton('epictree_join');
+            console.log('✅ Auto-CUT button clicked successfully (Method 2: customId only)');
+            buttonClicked = true;
+          } catch (error2) {
+            console.log('❌ Method 2 failed:', error2.message);
+
+            // Method 3: Try with different parameter order
+            try {
+              await message.clickButton(0, 0, 'epictree_join');
+              console.log('✅ Auto-CUT button clicked successfully (Method 3: row/col/id)');
+              buttonClicked = true;
+            } catch (error3) {
+              console.log('❌ Method 3 failed:', error3.message);
+
+              // Method 4: Try to interact with the component directly
               try {
-                if (message.components && message.components.length > 0) {
-                  // Debug button structure
-                  console.log('🔍 Button structure detected:');
-                  message.components.forEach((row, rowIndex) => {
-                    console.log(`  Row ${rowIndex}:`, row.components?.map(comp => ({
-                      type: comp.type,
-                      label: comp.label,
-                      customId: comp.customId,
-                      style: comp.style
-                    })));
+                const component = message.components[0].components[0];
+                if (component && component.customId === 'epictree_join') {
+                  // Try using message interaction
+                  await message.channel.client.api.interactions.post({
+                    data: {
+                      type: 3, // COMPONENT interaction type
+                      data: {
+                        component_type: 2, // BUTTON component type
+                        custom_id: 'epictree_join'
+                      },
+                      message_id: message.id,
+                      channel_id: message.channel.id,
+                      guild_id: message.guild?.id
+                    }
                   });
-
-                  // Try to click the button (no params for single button)
-                  await message.clickButton(null, null, 'epictree_join')
-                  console.log('✅ Auto-CUT button clicked successfully');
+                  console.log('✅ Auto-CUT button clicked successfully (Method 4: direct API)');
+                  buttonClicked = true;
                 } else {
-                  console.log('⚠️ No buttons found, typing CUT...');
-                  await message.channel.send('CUT');
-                  console.log('✅ Auto-CUT typed successfully');
+                  console.log('❌ Component structure mismatch');
                 }
-              } catch (error) {
-                console.error('❌ Button click failed:', error.message);
-                // Fallback to typing if button click fails
-                try {
-                  await message.channel.send('CUT');
-                  console.log('✅ Auto-CUT typed successfully (button failed)');
-                } catch (typeError) {
-                  console.error('❌ Failed to auto-CUT:', typeError);
-                }
+              } catch (error4) {
+                console.log('❌ Method 4 failed:', error4.message);
               }
-            }, 1000);
-
-            break;
+            }
           }
+        }
+
+        // If all button methods failed, fallback to typing
+        if (!buttonClicked) {
+          console.log('⚠️ All button click methods failed, typing CUT...');
+          await message.channel.send('CUT');
+          console.log('✅ Auto-CUT typed successfully');
+        }
+
+      } else {
+        console.log('⚠️ No buttons found, typing CUT...');
+        await message.channel.send('CUT');
+        console.log('✅ Auto-CUT typed successfully');
+      }
+    } catch (error) {
+      console.error('❌ General error in EPIC TREE handler:', error);
+      // Final fallback
+      try {
+        await message.channel.send('CUT');
+        console.log('✅ Auto-CUT typed successfully (general error fallback)');
+      } catch (typeError) {
+        console.error('❌ Failed to auto-CUT:', typeError);
+      }
+    }
+  }, 1000);
+
+  break;
+}
+
+// Alternative approach: Check if the message is actually interactive
+// Add this helper function at the top of your file:
+function isMessageInteractive(message) {
+  // Check if message has interactive components and is not too old
+  const messageAge = Date.now() - message.createdTimestamp;
+  const maxAge = 15 * 60 * 1000; // 15 minutes
+  
+  return message.components && 
+         message.components.length > 0 && 
+         messageAge < maxAge &&
+         !message.components[0].components[0].disabled;
+}
+
+// Enhanced version with interaction check:
+if (field.name && field.name.includes("AN EPIC TREE HAS JUST GROWN") &&
+    field.value && field.value.includes("Type **CUT**")) {
+  isAutoCatchEvent = true;
+  console.log('🌳 EPIC TREE EVENT DETECTED! Auto-cutting...');
+
+  setTimeout(async () => {
+    try {
+      // Check if message is still interactive
+      if (!isMessageInteractive(message)) {
+        console.log('⚠️ Message no longer interactive, typing CUT...');
+        await message.channel.send('CUT');
+        console.log('✅ Auto-CUT typed successfully');
+        return;
+      }
+
+      // Try the most reliable method first
+      try {
+        // Wait a bit more for the message to be fully loaded
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Refresh the message to get the latest state
+        const refreshedMessage = await message.channel.messages.fetch(message.id);
+        
+        if (refreshedMessage.components && refreshedMessage.components.length > 0) {
+          await refreshedMessage.clickButton(0, 0);
+          console.log('✅ Auto-CUT button clicked successfully (refreshed message)');
+        } else {
+          throw new Error('No components in refreshed message');
+        }
+      } catch (refreshError) {
+        console.log('❌ Refreshed button click failed:', refreshError.message);
+        // Fallback to typing
+        await message.channel.send('CUT');
+        console.log('✅ Auto-CUT typed successfully (refresh failed)');
+      }
+
+    } catch (error) {
+      console.error('❌ General error in EPIC TREE handler:', error);
+      try {
+        await message.channel.send('CUT');
+        console.log('✅ Auto-CUT typed successfully (general error fallback)');
+      } catch (typeError) {
+        console.error('❌ Failed to auto-CUT:', typeError);
+      }
+    }
+  }, 1500); // Increased delay to 1.5 seconds
+
+  break;
+}
 
           // Check for "MEGALODON" event
           if (field.name && field.name.includes("A MEGALODON HAS SPAWNED") &&
