@@ -45,7 +45,7 @@ let farmStates = {
 // Default cooldowns (dalam ms) - removed heal cooldown
 const DEFAULT_COOLDOWNS = {
   adventure: 3600000, // 1 hour
-  axe: 300000,       // 5 minutes (changed from chop)
+  axe: 300000,      // 5 minutes
   hunt: 60000        // 1 minute
   // heal removed - no cooldown, only HP-based
 };
@@ -355,7 +355,7 @@ function stopAdventureTimer() {
   console.log('🛑 Adventure timer stopped');
 }
 
-// Independent Axe System (changed from Chop)
+// Independent Axe System
 async function startAxeTimer() {
   if (farmStates.axe.enabled) return;
   
@@ -409,7 +409,7 @@ async function executeAxe() {
           farmStates.axe.enabled = false;
           if (farmTimers.axe) clearTimeout(farmTimers.axe);
           farmTimers.axe = setTimeout(async () => {
-            await executeAxe();
+            await executeaxe();
             startAxeTimer(); // Return to normal schedule
           }, cooldownMs + 2000);
           farmStates.axe.executing = false;
@@ -908,77 +908,20 @@ async function logBotDebugInfo(message) {
   }
 }
 
-// Auto Event Handler (updated with better EPIC coin event detection)
+// Auto Event Handler (updated with EPIC coin event)
 async function handleAutoEvent(message) {
   if (!message.author.id === '555955826880413696') return;
 
   let isAutoCatchEvent = false;
 
-  // Check for EPIC COIN in embed title/description first
   if (message.embeds && message.embeds.length > 0) {
     for (const embed of message.embeds) {
-      // Check embed title and description for EPIC coin
-      if ((embed.title && (embed.title.includes('EPIC coin') || embed.title.includes('EPICcoin'))) ||
-          (embed.description && (embed.description.includes('EPIC coin') || embed.description.includes('EPICcoin') || 
-           embed.description.includes('God accidentally dropped') || embed.description.includes('lucky player')))) {
-        
-        isAutoCatchEvent = true;
-        console.log('🪙 EPIC COIN EVENT DETECTED! Auto-catching...');
-
-        setTimeout(async () => {
-          try {
-            if (message.components && message.components.length > 0) {
-              let buttonCustomId = null;
-              for (const row of message.components) {
-                for (const comp of row.components || []) {
-                  // Check for EPIC coin button patterns
-                  if (comp.customId && (comp.customId.includes('godepiccoin') || 
-                      comp.customId.includes('epiccoin') ||
-                      comp.customId.includes('coin_claim') ||
-                      comp.customId.includes('claim'))) {
-                    buttonCustomId = comp.customId;
-                    break;
-                  }
-                  // Check for coin emoji
-                  if (comp.emoji && (comp.emoji.name === 'EPICcoin' || comp.emoji.name === 'coin')) {
-                    buttonCustomId = comp.customId;
-                    break;
-                  }
-                }
-                if (buttonCustomId) break;
-              }
-
-              if (buttonCustomId) {
-                await message.clickButton(buttonCustomId);
-                console.log(`✅ Auto-EPIC COIN button clicked successfully (ID: ${buttonCustomId})`);
-              } else {
-                await message.channel.send('CATCH');
-                console.log('✅ Auto-EPIC COIN typed successfully (no button found)');
-              }
-            } else {
-              await message.channel.send('CATCH');
-              console.log('✅ Auto-EPIC COIN typed successfully');
-            }
-          } catch (error) {
-            console.error('❌ EPIC COIN failed:', error.message);
-            try {
-              await message.channel.send('CATCH');
-              console.log('✅ Auto-EPIC COIN typed successfully (fallback)');
-            } catch (typeError) {
-              console.error('❌ Failed to auto-EPIC COIN:', typeError);
-            }
-          }
-        }, 1000);
-        break;
-      }
-
-      // Continue with field-based detection as fallback
       if (embed.fields && embed.fields.length > 0) {
         for (const field of embed.fields) {
 
-          // EPIC COIN EVENT (UPDATED)
-          if ((field.name && field.name.includes("EPIC coin")) ||
-              (field.value && (field.value.includes("EPIC coin") || field.value.includes("lucky player")))) {
+          // EPIC COIN EVENT (NEW)
+          if (field.name && field.name.includes(":EPICcoin: OOPS! God accidentally dropped an EPIC coin") &&
+              field.value && field.value.includes("I wonder who will be the lucky player to get it??")) {
             isAutoCatchEvent = true;
             console.log('🪙 EPIC COIN EVENT DETECTED! Auto-catching...');
 
@@ -988,21 +931,13 @@ async function handleAutoEvent(message) {
                   let buttonCustomId = null;
                   for (const row of message.components) {
                     for (const comp of row.components || []) {
-                      // Check for EPIC coin button patterns
-                      if (comp.customId && (comp.customId.includes('godepiccoin') || 
-                          comp.customId.includes('epiccoin') ||
-                          comp.customId.includes('coin_claim') ||
-                          comp.customId.includes('claim'))) {
+                      if (comp.label && (comp.label.includes('') || comp.label.includes('GET'))) {
                         buttonCustomId = comp.customId;
                         break;
                       }
-                      // Check for emoji indicating coin
-                      if (comp.emoji && (comp.emoji.name === 'EPICcoin' || comp.emoji.id)) {
-                        buttonCustomId = comp.customId;
-                        break;
-                      }
-                      // Fallback: any button with CATCH label
-                      if (comp.label && (comp.label.includes('CATCH') || comp.label.includes('GET'))) {
+                      if (comp.customId && (comp.customId.includes('catch') || 
+                          comp.customId.includes('godepiccoin') || 
+                          comp.customId.includes('epic'))) {
                         buttonCustomId = comp.customId;
                         break;
                       }
@@ -1012,7 +947,7 @@ async function handleAutoEvent(message) {
 
                   if (buttonCustomId) {
                     await message.clickButton(buttonCustomId);
-                    console.log(`✅ Auto-EPIC COIN button clicked successfully (ID: ${buttonCustomId})`);
+                    console.log('✅ Auto-EPIC COIN button clicked successfully');
                   } else {
                     await message.channel.send('CATCH');
                     console.log('✅ Auto-EPIC COIN typed successfully (no button found)');
@@ -1328,7 +1263,6 @@ process.on('exit', () => {
   if (presenceTimer) {
     clearTimeout(presenceTimer);
   }
-  // Clean up all farm timers
   Object.values(farmTimers).forEach(timer => {
     if (timer) {
       clearTimeout(timer);
