@@ -431,7 +431,7 @@ async function handleAutoEvent(message) {
           if (field.name && field.name.includes("IT'S RAINING COINS") &&
               field.value && field.value.includes("Type **CATCH**")) {
             isAutoCatchEvent = true;
-            console.log('🪙 COIN RAIN EVENT DETECTED! Auto-catching...');
+            console.log('💰 COIN RAIN EVENT DETECTED! Auto-catching...');
 
             setTimeout(async () => {
               try {
@@ -505,7 +505,7 @@ async function handleAutoEvent(message) {
 
           // MEGALODON EVENT
           if (field.name && field.name.includes("A MEGALODON HAS SPAWNED") &&
-              field.value && field.value.includes("Type LURE")) {
+              field.value && field.value.includes("Type **LURE**")) {
             isAutoCatchEvent = true;
             console.log('🦈 MEGALODON EVENT DETECTED! Auto-luring...');
 
