@@ -505,7 +505,7 @@ async function handleAutoEvent(message) {
 
           // MEGALODON EVENT
           if (field.name && field.name.includes("A MEGALODON HAS SPAWNED") &&
-              field.value && field.value.includes("Type LURE")) {
+              field.value && field.value.includes("Type **LURE**")) {
             isAutoCatchEvent = true;
             console.log('🦈 MEGALODON EVENT DETECTED! Auto-luring...');
 
@@ -551,7 +551,7 @@ async function handleAutoEvent(message) {
           }
 
           // ARENA EVENT
-          if (field.name && field.name.includes("Type join to join the arena!") &&
+          if (field.name && field.name.includes("Type `join` to join the arena!") &&
               field.value && field.value.includes("arena cookies")) {
             isAutoCatchEvent = true;
             console.log('⚔️ ARENA EVENT DETECTED! Auto-joining...');
@@ -598,7 +598,7 @@ async function handleAutoEvent(message) {
           }
 
           // MINIBOSS EVENT
-          if (field.name && field.name.includes("Type fight to help and get a reward!") &&
+          if (field.name && field.name.includes("Type `fight` to help and get a reward!") &&
               field.value && field.value.includes("CHANCE TO WIN")) {
             isAutoCatchEvent = true;
             console.log('👹 MINIBOSS EVENT DETECTED! Auto-fighting...');
