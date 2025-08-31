@@ -345,6 +345,7 @@ async function performHunt() {
   if (!farmEnabled || !currentChannel) return;
 
   try {
+    console.log('🏹 Performing hunt...'); // Added log for hunt
     const slashResponse = await currentChannel.sendSlash('555955826880413696', 'hunt');
 
     if (slashResponse) {
@@ -379,9 +380,18 @@ async function performHunt() {
         if (isCooldown && retryDelay > 0) {
           setTimeout(() => {
             if (farmEnabled) {
+              console.log('🔄 Retrying hunt after cooldown...');
               performHunt();
             }
           }, retryDelay);
+        } else if (!isCooldown) {
+          // No cooldown detected, use default cooldown (1 minute for hunt)
+          setTimeout(() => {
+            if (farmEnabled) {
+              console.log('🔄 Retrying hunt after default cooldown (1 minute)...');
+              performHunt();
+            }
+          }, 60000); // 1 minute default cooldown
         }
 
       } catch (responseError) {
@@ -416,7 +426,7 @@ async function handleAutoEvent(message) {
     for (const embed of message.embeds) {
       if (embed.fields && embed.fields.length > 0) {
         for (const field of embed.fields) {
-          
+
           // COIN RAIN EVENT
           if (field.name && field.name.includes("IT'S RAINING COINS") &&
               field.value && field.value.includes("Type **CATCH**")) {
@@ -430,8 +440,8 @@ async function handleAutoEvent(message) {
                   let buttonCustomId = null;
                   for (const row of message.components) {
                     for (const comp of row.components || []) {
-                      if (comp.label === 'CATCH' || 
-                          comp.customId?.includes('catch') || 
+                      if (comp.label === 'CATCH' ||
+                          comp.customId?.includes('catch') ||
                           comp.customId?.includes('coin')) {
                         buttonCustomId = comp.customId;
                         break;
@@ -506,8 +516,8 @@ async function handleAutoEvent(message) {
                   let buttonCustomId = null;
                   for (const row of message.components) {
                     for (const comp of row.components || []) {
-                      if (comp.label === 'LURE' || 
-                          comp.customId?.includes('lure') || 
+                      if (comp.label === 'LURE' ||
+                          comp.customId?.includes('lure') ||
                           comp.customId?.includes('megalodon')) {
                         buttonCustomId = comp.customId;
                         break;
