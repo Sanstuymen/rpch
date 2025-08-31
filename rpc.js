@@ -30,14 +30,14 @@ let debugEnabled = false;
 // Independent timer system untuk setiap command
 let farmTimers = {
   adventure: null,
-  chop: null,
+  axe: null,
   hunt: null,
   heal: null
 };
 
 let farmStates = {
   adventure: { enabled: false, executing: false },
-  chop: { enabled: false, executing: false },
+  axe: { enabled: false, executing: false },
   hunt: { enabled: false, executing: false },
   heal: { enabled: false, executing: false }
 };
@@ -45,7 +45,7 @@ let farmStates = {
 // Default cooldowns (dalam ms) - removed heal cooldown
 const DEFAULT_COOLDOWNS = {
   adventure: 3600000, // 1 hour
-  chop: 300000,      // 5 minutes
+  axe: 300000,      // 5 minutes
   hunt: 60000        // 1 minute
   // heal removed - no cooldown, only HP-based
 };
@@ -355,36 +355,36 @@ function stopAdventureTimer() {
   console.log('🛑 Adventure timer stopped');
 }
 
-// Independent Chop System
-async function startChopTimer() {
-  if (farmStates.chop.enabled) return;
+// Independent Axe System
+async function startAxeTimer() {
+  if (farmStates.axe.enabled) return;
   
-  farmStates.chop.enabled = true;
-  console.log('🪓 Chop timer started');
+  farmStates.axe.enabled = true;
+  console.log('🪓 Axe timer started');
   
   // Execute immediately then start timer
-  await executeChop();
+  await executeAxe();
   
-  function scheduleChop() {
-    if (!farmStates.chop.enabled || !farmEnabled) return;
+  function scheduleAxe() {
+    if (!farmStates.axe.enabled || !farmEnabled) return;
     
-    farmTimers.chop = setTimeout(async () => {
-      await executeChop();
-      scheduleChop();
-    }, DEFAULT_COOLDOWNS.chop);
+    farmTimers.axe = setTimeout(async () => {
+      await executeAxe();
+      scheduleAxe();
+    }, DEFAULT_COOLDOWNS.axe);
   }
   
-  scheduleChop();
+  scheduleAxe();
 }
 
-async function executeChop() {
-  if (farmStates.chop.executing || !farmEnabled || !currentChannel) return;
+async function executeAxe() {
+  if (farmStates.axe.executing || !farmEnabled || !currentChannel) return;
   
-  farmStates.chop.executing = true;
-  console.log('🪓 Executing chop...');
+  farmStates.axe.executing = true;
+  console.log('🪓 Executing axe...');
   
   try {
-    const slashResponse = await currentChannel.sendSlash('555955826880413696', 'chop');
+    const slashResponse = await currentChannel.sendSlash('555955826880413696', 'axe');
     
     if (slashResponse) {
       try {
@@ -397,45 +397,45 @@ async function executeChop() {
             currentChannel.send('🚨 **EPIC GUARD DETECTED!** 👮‍♂️ Auto-stopping farm for safety').catch(() => {});
           }
           stopFarm();
-          farmStates.chop.executing = false;
+          farmStates.axe.executing = false;
           return;
         }
         
         // Check for dynamic cooldown
         const cooldownMs = checkForCooldown(botResponse);
         if (cooldownMs > 0) {
-          console.log(`⏰ Chop cooldown detected: ${Math.ceil(cooldownMs/1000)}s`);
+          console.log(`⏰ Axe cooldown detected: ${Math.ceil(cooldownMs/1000)}s`);
           // Reschedule with actual cooldown
-          farmStates.chop.enabled = false;
-          if (farmTimers.chop) clearTimeout(farmTimers.chop);
-          farmTimers.chop = setTimeout(async () => {
-            await executeChop();
-            startChopTimer(); // Return to normal schedule
+          farmStates.axe.enabled = false;
+          if (farmTimers.axe) clearTimeout(farmTimers.axe);
+          farmTimers.axe = setTimeout(async () => {
+            await executeaxe();
+            startAxeTimer(); // Return to normal schedule
           }, cooldownMs + 2000);
-          farmStates.chop.executing = false;
+          farmStates.axe.executing = false;
           return;
         }
         
-        console.log('✅ Chop completed successfully');
+        console.log('✅ Axe completed successfully');
         
       } catch (responseError) {
-        console.log('⚠️ Chop: No response received');
+        console.log('⚠️ Axe: No response received');
       }
     }
   } catch (error) {
-    console.error('❌ Chop execution failed:', error);
+    console.error('❌ Axe execution failed:', error);
   } finally {
-    farmStates.chop.executing = false;
+    farmStates.axe.executing = false;
   }
 }
 
-function stopChopTimer() {
-  farmStates.chop.enabled = false;
-  if (farmTimers.chop) {
-    clearTimeout(farmTimers.chop);
-    farmTimers.chop = null;
+function stopAxeTimer() {
+  farmStates.axe.enabled = false;
+  if (farmTimers.axe) {
+    clearTimeout(farmTimers.axe);
+    farmTimers.axe = null;
   }
-  console.log('🛑 Chop timer stopped');
+  console.log('🛑 Axe timer stopped');
 }
 
 // Independent Hunt System
@@ -590,7 +590,7 @@ async function startFarm(channel) {
   // Wait 3 seconds after heal then start all timers
   setTimeout(() => {
     startAdventureTimer();
-    startChopTimer();
+    startAxeTimer();
     startHuntTimer();
     console.log('✅ All farm timers are now running independently');
     console.log('🩹 Heal system: HP-based triggering (60% threshold)');
@@ -605,7 +605,7 @@ function stopFarm() {
   
   // Stop all individual timers
   stopAdventureTimer();
-  stopChopTimer();
+  stopAxeTimer();
   stopHuntTimer();
   
   // Reset heal state
@@ -623,12 +623,289 @@ function getFarmStatus() {
   
   let status = '🚜 **Independent Farm Status:**\n';
   status += `🗺️ Adventure: ${farmStates.adventure.enabled ? (farmStates.adventure.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
-  status += `🪓 Chop: ${farmStates.chop.enabled ? (farmStates.chop.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
+  status += `🪓 Axe: ${farmStates.axe.enabled ? (farmStates.axe.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
   status += `🏹 Hunt: ${farmStates.hunt.enabled ? (farmStates.hunt.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
   status += `🩹 Heal: ${farmStates.heal.executing ? 'Healing...' : 'Ready (HP-based trigger)'}\n`;
   status += `🚨 EPIC GUARD: Auto-stop protection enabled`;
   
   return status;
+}
+
+// Enhanced debug function for bot messages
+async function debugBotMessage(message, targetMessage) {
+  try {
+    console.log('🔍 Starting debug of bot message...');
+    
+    // Debug message content
+    if (targetMessage.content && targetMessage.content.trim()) {
+      await message.channel.send(`**[DEBUG]** Bot Message Content:\n\`\`\`\n${targetMessage.content}\n\`\`\``).catch(() => {});
+    }
+
+    // Debug embeds
+    if (targetMessage.embeds && targetMessage.embeds.length > 0) {
+      await message.channel.send(`**[DEBUG]** Bot has ${targetMessage.embeds.length} embed(s)`).catch(() => {});
+
+      for (let i = 0; i < targetMessage.embeds.length; i++) {
+        const embed = targetMessage.embeds[i];
+        let embedInfo = `**[DEBUG]** Embed ${i + 1}:\n`;
+
+        if (embed.title) embedInfo += `**Title:** ${embed.title}\n`;
+        if (embed.description) embedInfo += `**Description:** ${embed.description}\n`;
+        if (embed.color) embedInfo += `**Color:** ${embed.color}\n`;
+        if (embed.author) embedInfo += `**Author:** ${embed.author.name || 'N/A'}\n`;
+        if (embed.footer) embedInfo += `**Footer:** ${embed.footer.text || 'N/A'}\n`;
+        if (embed.timestamp) embedInfo += `**Timestamp:** ${embed.timestamp}\n`;
+
+        if (embed.fields && embed.fields.length > 0) {
+          embedInfo += `**Fields (${embed.fields.length}):**\n`;
+          embed.fields.forEach((field, index) => {
+            embedInfo += `  ${index + 1}. **${field.name}:** ${field.value}\n`;
+          });
+        }
+
+        // Split long messages
+        if (embedInfo.length > 1900) {
+          const chunks = embedInfo.match(/.{1,1900}(\n|$)/g);
+          for (const chunk of chunks) {
+            await message.channel.send(chunk).catch(() => {});
+          }
+        } else {
+          await message.channel.send(embedInfo).catch(() => {});
+        }
+      }
+    }
+
+    // Debug buttons/components
+    if (targetMessage.components && targetMessage.components.length > 0) {
+      await message.channel.send(`**[DEBUG]** Bot has ${targetMessage.components.length} component row(s) with buttons`).catch(() => {});
+      
+      for (let rowIndex = 0; rowIndex < targetMessage.components.length; rowIndex++) {
+        const row = targetMessage.components[rowIndex];
+        let buttonInfo = `**[DEBUG]** Button Row ${rowIndex + 1}:\n`;
+        
+        if (row.components && row.components.length > 0) {
+          buttonInfo += `**Total Buttons:** ${row.components.length}\n`;
+          
+          row.components.forEach((component, btnIndex) => {
+            buttonInfo += `**Button ${btnIndex + 1}:**\n`;
+            buttonInfo += `  - Type: ${component.type || 'Unknown'}\n`;
+            buttonInfo += `  - Style: ${component.style || 'Unknown'}\n`;
+            buttonInfo += `  - Label: ${component.label || 'No Label'}\n`;
+            buttonInfo += `  - Custom ID: ${component.customId || 'No Custom ID'}\n`;
+            buttonInfo += `  - Disabled: ${component.disabled || false}\n`;
+            if (component.emoji) {
+              buttonInfo += `  - Emoji: ${component.emoji.name || component.emoji.id || 'Unknown emoji'}\n`;
+            }
+            if (component.url) {
+              buttonInfo += `  - URL: ${component.url}\n`;
+            }
+            buttonInfo += `\n`;
+          });
+        }
+
+        // Split long button info
+        if (buttonInfo.length > 1900) {
+          const chunks = buttonInfo.match(/.{1,1900}(\n|$)/g);
+          for (const chunk of chunks) {
+            await message.channel.send(chunk).catch(() => {});
+          }
+        } else {
+          await message.channel.send(buttonInfo).catch(() => {});
+        }
+      }
+    }
+
+    // Debug message metadata
+    let metadataInfo = `**[DEBUG]** Message Metadata:\n`;
+    metadataInfo += `**Message ID:** ${targetMessage.id}\n`;
+    metadataInfo += `**Author:** ${targetMessage.author.username} (${targetMessage.author.id})\n`;
+    metadataInfo += `**Channel:** ${targetMessage.channel.name || targetMessage.channel.id}\n`;
+    metadataInfo += `**Timestamp:** ${targetMessage.createdAt}\n`;
+    metadataInfo += `**Has Content:** ${!!targetMessage.content}\n`;
+    metadataInfo += `**Has Embeds:** ${!!(targetMessage.embeds && targetMessage.embeds.length > 0)}\n`;
+    metadataInfo += `**Has Components:** ${!!(targetMessage.components && targetMessage.components.length > 0)}\n`;
+    
+    await message.channel.send(metadataInfo).catch(() => {});
+
+    // If no content, embeds, or components
+    if ((!targetMessage.content || !targetMessage.content.trim()) && 
+        (!targetMessage.embeds || targetMessage.embeds.length === 0) &&
+        (!targetMessage.components || targetMessage.components.length === 0)) {
+      await message.channel.send(`**[DEBUG]** ⚠️ Bot message has no content, embeds, or components`).catch(() => {});
+    }
+
+    console.log('✅ Bot message debug completed');
+
+  } catch (error) {
+    console.error('❌ Error debugging bot message:', error);
+    await message.channel.send(`**[DEBUG ERROR]** ${error.message}`).catch(() => {});
+  }
+}
+
+// Enhanced message handler for debug commands
+async function handleDebugCommand(message) {
+  await message.delete().catch(() => {});
+  
+  // Check if this is a reply to another message
+  if (message.reference && message.reference.messageId) {
+    try {
+      // Fetch the replied message
+      const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+      
+      // Check if the replied message is from EPIC RPG bot
+      if (repliedMessage.author.id === '555955826880413696') {
+        console.log('🔍 Debugging replied bot message...');
+        await message.channel.send('🔍 **Debugging replied bot message...**').catch(() => {});
+        await debugBotMessage(message, repliedMessage);
+        return true;
+      } else {
+        await message.channel.send('❌ **Error:** You can only debug messages from EPIC RPG bot (ID: 555955826880413696)').catch(() => {});
+        return true;
+      }
+    } catch (error) {
+      await message.channel.send(`❌ **Error fetching replied message:** ${error.message}`).catch(() => {});
+      return true;
+    }
+  }
+  
+  // If not a reply, check if it's a slash command debug
+  const content = message.content.toLowerCase().trim();
+  if (content.startsWith('.debug ')) {
+    const command = content.substring(7).trim();
+    
+    if (!command) {
+      await message.channel.send('❌ **Usage:** `.debug <command>` or reply to a bot message with `.debug`').catch(() => {});
+      return true;
+    }
+
+    try {
+      console.log(`🔍 Debug slash command: ${command}`);
+      await message.channel.send(`🔍 **Executing debug command:** \`${command}\``).catch(() => {});
+      
+      const slashResponse = await message.channel.sendSlash('555955826880413696', command);
+
+      if (slashResponse) {
+        console.log('✅ Debug command sent successfully');
+
+        // Wait for bot response
+        try {
+          console.log('⏳ Waiting for bot response...');
+          const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
+          
+          await message.channel.send('✅ **Bot responded! Debugging response...**').catch(() => {});
+          await debugBotMessage(message, botResponse);
+
+        } catch (responseError) {
+          await message.channel.send('**[DEBUG]** ⚠️ No bot response received within 15 seconds').catch(() => {});
+        }
+      } else {
+        await message.channel.send('❌ **Failed to send slash command**').catch(() => {});
+      }
+    } catch (error) {
+      await message.channel.send(`❌ **Debug command failed:** ${error.message}`).catch(() => {});
+    }
+    return true;
+  }
+  
+  // If it's just ".debug" without parameters and not a reply
+  if (content === '.debug') {
+    await message.channel.send('ℹ️ **Debug Usage:**\n• `.debug <command>` - Debug a slash command\n• Reply to a bot message with `.debug` - Debug that message').catch(() => {});
+    return true;
+  }
+  
+  return false;
+}
+
+// Enhanced function to log debug information for bot messages (auto debug)
+async function logBotDebugInfo(message) {
+  if (!debugEnabled) return;
+
+  try {
+    // Send content if exists
+    if (message.content && message.content.trim()) {
+      await message.channel.send(`**[BOT EVENT]** Bot Message:\n\`\`\`\n${message.content}\n\`\`\``);
+    }
+
+    // Send embed info if exists
+    if (message.embeds && message.embeds.length > 0) {
+      await message.channel.send(`**[BOT EVENT]** Bot has ${message.embeds.length} embed(s)`);
+
+      // Display each embed's content
+      for (let i = 0; i < message.embeds.length; i++) {
+        const embed = message.embeds[i];
+        let embedInfo = `**[BOT EVENT]** Embed ${i + 1}:\n`;
+
+        if (embed.title) embedInfo += `**Title:** ${embed.title}\n`;
+        if (embed.description) embedInfo += `**Description:** ${embed.description}\n`;
+        if (embed.color) embedInfo += `**Color:** ${embed.color}\n`;
+        if (embed.author) embedInfo += `**Author:** ${embed.author.name || 'N/A'}\n`;
+        if (embed.footer) embedInfo += `**Footer:** ${embed.footer.text || 'N/A'}\n`;
+        if (embed.timestamp) embedInfo += `**Timestamp:** ${embed.timestamp}\n`;
+
+        if (embed.fields && embed.fields.length > 0) {
+          embedInfo += `**Fields:**\n`;
+          embed.fields.forEach((field, index) => {
+            embedInfo += `  ${index + 1}. **${field.name}:** ${field.value}\n`;
+          });
+        }
+
+        // Check if message is too long and split if needed
+        if (embedInfo.length > 1900) {
+          const chunks = embedInfo.match(/.{1,1900}(\n|$)/g);
+          for (const chunk of chunks) {
+            await message.channel.send(chunk);
+          }
+        } else {
+          await message.channel.send(embedInfo);
+        }
+      }
+    }
+
+    // Send button/component info if exists
+    if (message.components && message.components.length > 0) {
+      await message.channel.send(`**[BOT EVENT]** Bot has ${message.components.length} component row(s) with buttons`);
+      
+      for (let rowIndex = 0; rowIndex < message.components.length; rowIndex++) {
+        const row = message.components[rowIndex];
+        let buttonInfo = `**[BOT EVENT]** Button Row ${rowIndex + 1}:\n`;
+        
+        if (row.components && row.components.length > 0) {
+          buttonInfo += `**Total Buttons:** ${row.components.length}\n`;
+          
+          row.components.forEach((component, btnIndex) => {
+            buttonInfo += `**Button ${btnIndex + 1}:**\n`;
+            buttonInfo += `  - Label: ${component.label || 'No Label'}\n`;
+            buttonInfo += `  - Custom ID: ${component.customId || 'No Custom ID'}\n`;
+            buttonInfo += `  - Style: ${component.style || 'Unknown'}\n`;
+            buttonInfo += `  - Disabled: ${component.disabled || false}\n`;
+            if (component.emoji) {
+              buttonInfo += `  - Emoji: ${component.emoji.name || component.emoji.id || 'Unknown emoji'}\n`;
+            }
+            buttonInfo += `\n`;
+          });
+        }
+
+        // Split long button info if needed
+        if (buttonInfo.length > 1900) {
+          const chunks = buttonInfo.match(/.{1,1900}(\n|$)/g);
+          for (const chunk of chunks) {
+            await message.channel.send(chunk);
+          }
+        } else {
+          await message.channel.send(buttonInfo);
+        }
+      }
+    }
+
+    // If no content, embeds, or components, still log it
+    if ((!message.content || !message.content.trim()) && 
+        (!message.embeds || message.embeds.length === 0) &&
+        (!message.components || message.components.length === 0)) {
+      await message.channel.send(`**[BOT EVENT]** Bot sent a message with no content/embeds/components`);
+    }
+  } catch (error) {
+    console.error('Error sending bot event debug:', error);
+  }
 }
 
 // Auto Event Handler (updated with EPIC coin event)
@@ -910,64 +1187,11 @@ async function handleAutoEvent(message) {
   }
 }
 
-// Function to log debug information for bot messages
-async function logBotDebugInfo(message) {
-  if (!debugEnabled) return;
-
-  try {
-    // Send content if exists
-    if (message.content && message.content.trim()) {
-      await message.channel.send(`**[BOT EVENT]** Bot Message:\n\`\`\`\n${message.content}\n\`\`\``);
-    }
-
-    // Send embed info if exists
-    if (message.embeds && message.embeds.length > 0) {
-      await message.channel.send(`**[BOT EVENT]** Bot has ${message.embeds.length} embed(s)`);
-
-      // Display each embed's content
-      for (let i = 0; i < message.embeds.length; i++) {
-        const embed = message.embeds[i];
-        let embedInfo = `**[BOT EVENT]** Embed ${i + 1}:\n`;
-
-        if (embed.title) embedInfo += `**Title:** ${embed.title}\n`;
-        if (embed.description) embedInfo += `**Description:** ${embed.description}\n`;
-        if (embed.color) embedInfo += `**Color:** ${embed.color}\n`;
-        if (embed.author) embedInfo += `**Author:** ${embed.author.name || 'N/A'}\n`;
-        if (embed.footer) embedInfo += `**Footer:** ${embed.footer.text || 'N/A'}\n`;
-        if (embed.timestamp) embedInfo += `**Timestamp:** ${embed.timestamp}\n`;
-
-        if (embed.fields && embed.fields.length > 0) {
-          embedInfo += `**Fields:**\n`;
-          embed.fields.forEach((field, index) => {
-            embedInfo += `  ${index + 1}. **${field.name}:** ${field.value}\n`;
-          });
-        }
-
-        // Check if message is too long and split if needed
-        if (embedInfo.length > 1900) {
-          const chunks = embedInfo.match(/.{1,1900}(\n|$)/g);
-          for (const chunk of chunks) {
-            await message.channel.send(chunk);
-          }
-        } else {
-          await message.channel.send(embedInfo);
-        }
-      }
-    }
-
-    // If no content and no embeds, still log it
-    if ((!message.content || !message.content.trim()) && (!message.embeds || message.embeds.length === 0)) {
-      await message.channel.send(`**[BOT EVENT]** Bot sent a message with no content/embeds`);
-    }
-  } catch (error) {
-    console.error('Error sending bot event debug:', error);
-  }
-}
-
 client.on('ready', async () => {
   console.log(`🔗 Logged in as: ${client.user.username}`);
   console.log('Selfbot ready!');
   console.log('Commands: .on rpc, .off rpc, .on farm, .off farm, .farm status, .debug <command>, .on debug, .off debug');
+  console.log('Debug: Reply to bot messages with .debug to analyze them');
 
   extendURL = await Discord.RichPresence.getExternal(
     client,
@@ -976,6 +1200,7 @@ client.on('ready', async () => {
   );
 });
 
+// Updated message handler
 client.on('messageCreate', async (message) => {
   // Process auto-events regardless of the channel
   if (message.author.id === '555955826880413696') {
@@ -988,6 +1213,13 @@ client.on('messageCreate', async (message) => {
 
   const content = message.content.toLowerCase().trim();
 
+  // Handle debug commands (both reply and slash command)
+  if (content === '.debug' || content.startsWith('.debug ')) {
+    const handled = await handleDebugCommand(message);
+    if (handled) return;
+  }
+
+  // Handle other commands
   if (content === '.on rpc') {
     await message.delete().catch(() => {});
     currentChannel = message.channel;
@@ -1019,56 +1251,6 @@ client.on('messageCreate', async (message) => {
     debugEnabled = false;
     console.log('🚫 Debug Disabled');
     currentChannel.send('🚫 **Debug Disabled** - Bot events will be hidden').catch(() => {});
-  } else if (content.startsWith('.debug ')) {
-    await message.delete().catch(() => {});
-    const command = content.substring(7).trim();
-
-    try {
-      console.log(`🔍 Debug command: ${command}`);
-      const slashResponse = await message.channel.sendSlash('555955826880413696', command);
-
-      if (slashResponse) {
-        console.log('✅ Debug command sent successfully');
-
-        // Wait for bot response
-        try {
-          console.log('⏳ Waiting for bot response...');
-          const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
-
-          // Send the bot response for debugging
-          if (botResponse.content) {
-            await message.channel.send(`**[DEBUG]** Bot Response:\n\`\`\`\n${botResponse.content}\n\`\`\``).catch(() => {});
-          }
-
-          if (botResponse.embeds && botResponse.embeds.length > 0) {
-            await message.channel.send(`**[DEBUG]** Bot has ${botResponse.embeds.length} embed(s)`).catch(() => {});
-
-            // Display embed content
-            for (let i = 0; i < botResponse.embeds.length; i++) {
-              const embed = botResponse.embeds[i];
-              let embedInfo = `**[DEBUG]** Embed ${i + 1}:\n`;
-
-              if (embed.title) embedInfo += `**Title:** ${embed.title}\n`;
-              if (embed.description) embedInfo += `**Description:** ${embed.description}\n`;
-              if (embed.color) embedInfo += `**Color:** ${embed.color}\n`;
-              if (embed.fields && embed.fields.length > 0) {
-                embedInfo += `**Fields:**\n`;
-                embed.fields.forEach((field, index) => {
-                  embedInfo += `  ${index + 1}. **${field.name}:** ${field.value}\n`;
-                });
-              }
-
-              await message.channel.send(embedInfo).catch(() => {});
-            }
-          }
-
-        } catch (responseError) {
-          await message.channel.send('**[DEBUG]** No bot response received within 15 seconds').catch(() => {});
-        }
-      }
-    } catch (error) {
-      await message.channel.send(`❌ **Debug command failed:** ${error.message}`).catch(() => {});
-    }
   }
 });
 
@@ -1081,7 +1263,6 @@ process.on('exit', () => {
   if (presenceTimer) {
     clearTimeout(presenceTimer);
   }
-  // Clean up all farm timers
   Object.values(farmTimers).forEach(timer => {
     if (timer) {
       clearTimeout(timer);
