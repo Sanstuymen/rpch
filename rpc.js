@@ -219,6 +219,7 @@ function parseCooldown(title) {
 }
 
 let lastAdventureTime = 0;
+let lastChopTime = 0;
 
 async function performFarm() {
   if (!farmEnabled || !currentChannel) return;
@@ -229,6 +230,9 @@ async function performFarm() {
   if (currentTime - lastAdventureTime >= 3600000) {
     await performAdventure();
     lastAdventureTime = currentTime;
+  } else if (currentTime - lastChopTime >= 300000) { // 5 minutes = 300000ms
+    await performChop();
+    lastChopTime = currentTime;
   } else {
     // Do hunt
     await performHunt();
@@ -287,6 +291,53 @@ async function performAdventure() {
     }
   } catch (error) {
     console.error('❌ Failed to perform adventure:', error);
+  }
+}
+
+async function performChop() {
+  if (!farmEnabled || !currentChannel) return;
+
+  try {
+    console.log('🪓 Performing chop...');
+    const slashResponse = await currentChannel.sendSlash('555955826880413696', 'chop');
+
+    if (slashResponse) {
+      try {
+        const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
+
+        // Check for cooldown in embeds
+        let isCooldown = false;
+        let retryDelay = 0;
+
+        if (botResponse.embeds && botResponse.embeds.length > 0) {
+          for (const embed of botResponse.embeds) {
+            if (embed.title && embed.title.includes('wait at least')) {
+              isCooldown = true;
+              const cooldownMs = parseCooldown(embed.title);
+              if (cooldownMs) {
+                retryDelay = cooldownMs + 2000; // Add 2 second buffer
+                console.log(`⏰ Chop on cooldown, retrying in ${Math.ceil(retryDelay/1000)} seconds...`);
+              }
+              break;
+            }
+          }
+        }
+
+        if (isCooldown && retryDelay > 0) {
+          setTimeout(() => {
+            if (farmEnabled) {
+              console.log('🔄 Retrying chop after cooldown...');
+              performChop();
+            }
+          }, retryDelay);
+        }
+
+      } catch (responseError) {
+        console.log('⚠️ No chop response received');
+      }
+    }
+  } catch (error) {
+    console.error('❌ Failed to perform chop:', error);
   }
 }
 
