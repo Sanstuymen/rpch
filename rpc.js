@@ -23,11 +23,34 @@ let startTimestamp;
 let extendURL;
 let presenceTimer;
 let rpcEnabled = false;
-let farmTimer;
 let farmEnabled = false;
 let currentChannel = null;
 let debugEnabled = false;
 
+// Independent timer system untuk setiap command
+let farmTimers = {
+  adventure: null,
+  chop: null,
+  hunt: null,
+  heal: null
+};
+
+let farmStates = {
+  adventure: { enabled: false, executing: false },
+  chop: { enabled: false, executing: false },
+  hunt: { enabled: false, executing: false },
+  heal: { enabled: false, executing: false }
+};
+
+// Default cooldowns (dalam ms) - removed heal cooldown
+const DEFAULT_COOLDOWNS = {
+  adventure: 3600000, // 1 hour
+  chop: 300000,      // 5 minutes
+  hunt: 60000        // 1 minute
+  // heal removed - no cooldown, only HP-based
+};
+
+// RPC Functions (unchanged)
 function getRandomFile() {
   return fileNames[Math.floor(Math.random() * fileNames.length)];
 }
@@ -93,41 +116,7 @@ function stopRPC() {
   }
 }
 
-async function startFarm(channel) {
-  if (farmEnabled) return;
-
-  farmEnabled = true;
-  currentChannel = channel;
-  console.log('🚜 Auto Farm Started');
-  if (currentChannel) {
-    currentChannel.send('🚜 **Auto Farm Started**').catch(() => {});
-  }
-
-  // Heal first before starting farm
-  await performHeal();
-
-  // Start farming immediately
-  await performFarm();
-
-  // Set interval for every 1 minute to check what to do
-  farmTimer = setInterval(performFarm, 60000);
-}
-
-function stopFarm() {
-  if (!farmEnabled) return;
-
-  farmEnabled = false;
-  if (farmTimer) {
-    clearInterval(farmTimer);
-    farmTimer = null;
-  }
-
-  console.log('🛑 Auto Farm Stopped');
-  if (currentChannel) {
-    currentChannel.send('🛑 **Auto Farm Stopped**').catch(() => {});
-  }
-}
-
+// Helper Functions
 async function waitForBotResponse(originalMessage, botId, timeout = 30000) {
   return new Promise((resolve, reject) => {
     let done = false;
@@ -169,24 +158,6 @@ async function waitForBotResponse(originalMessage, botId, timeout = 30000) {
   });
 }
 
-async function performHeal() {
-  if (!currentChannel) return;
-
-  try {
-    const slashResponse = await currentChannel.sendSlash('555955826880413696', 'heal');
-
-    if (slashResponse) {
-      try {
-        const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
-      } catch (responseError) {
-        // Silent fail for heal response
-      }
-    }
-  } catch (error) {
-    console.error('❌ Failed to heal:', error);
-  }
-}
-
 function parseHP(content) {
   // Parse HP from content like "Lost 32 HP, remaining HP is 41/105"
   const hpMatch = content.match(/remaining HP is (\d+)\/(\d+)/i);
@@ -201,219 +172,373 @@ function parseHP(content) {
 
 function parseCooldown(title) {
   // Parse cooldown from title like "You have already looked around, wait at least **0m 0s**..."
-  // Handle both plain text and markdown formatting
   const cooldownMatch = title.match(/wait at least \*{0,2}(\d+)m (\d+)s\*{0,2}/i);
   if (cooldownMatch) {
     const minutes = parseInt(cooldownMatch[1]);
     const seconds = parseInt(cooldownMatch[2]);
     const totalMs = (minutes * 60 + seconds) * 1000;
 
-    // If cooldown is 0 seconds, add a small buffer (3-5 seconds)
+    // If cooldown is 0 seconds, add a small buffer (3 seconds)
     if (totalMs === 0) {
-      return 3000; // 3 seconds buffer for "0m 0s" cases
+      return 3000;
     }
 
-    return totalMs; // Convert to milliseconds
+    return totalMs;
   }
   return null;
 }
 
-let lastAdventureTime = 0;
-let lastChopTime = 0;
-let lastHuntTime = 0;
+// Helper function to check cooldown from bot response
+function checkForCooldown(botResponse) {
+  if (botResponse.embeds && botResponse.embeds.length > 0) {
+    for (const embed of botResponse.embeds) {
+      if (embed.title && embed.title.includes('wait at least')) {
+        const cooldownMs = parseCooldown(embed.title);
+        if (cooldownMs > 0) {
+          return cooldownMs;
+        }
+      }
+    }
+  }
+  return 0;
+}
 
-async function performFarm() {
-  if (!farmEnabled || !currentChannel) return;
-
-  const currentTime = Date.now();
-
-  // Execute all commands, check cooldown in each function
-  console.log('🚜 Starting farm cycle - executing all commands...');
+// Helper function to check HP and trigger heal if needed
+async function checkAndHeal(botResponse) {
+  if (!botResponse.content) return;
   
-  // Execute adventure (1 hour cooldown)
-  if (currentTime - lastAdventureTime >= 3600000) {
-    await performAdventure();
-    lastAdventureTime = currentTime;
-  }
-
-  // Execute chop (5 minute cooldown)  
-  if (currentTime - lastChopTime >= 300000) {
-    await performChop();
-    lastChopTime = currentTime;
-  }
-
-  // Execute hunt (1 minute cooldown)
-  if (currentTime - lastHuntTime >= 60000) {
-    await performHunt();
-    lastHuntTime = currentTime;
+  const hpData = parseHP(botResponse.content);
+  if (hpData) {
+    const hpPercentage = (hpData.current / hpData.max) * 100;
+    
+    // More aggressive healing - heal at 60% HP or if HP < 60
+    if (hpPercentage < 60 || hpData.current < 60) {
+      console.log(`🩹 HP is low (${hpData.current}/${hpData.max} - ${Math.round(hpPercentage)}%), triggering heal...`);
+      await triggerHeal();
+      
+      // Wait a bit after heal to ensure it processes
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } else {
+      console.log(`💚 HP is healthy (${hpData.current}/${hpData.max} - ${Math.round(hpPercentage)}%)`);
+    }
   }
 }
 
-async function performAdventure() {
-  if (!farmEnabled || !currentChannel) return;
+// Independent Adventure System
+async function startAdventureTimer() {
+  if (farmStates.adventure.enabled) return;
+  
+  farmStates.adventure.enabled = true;
+  console.log('🗺️ Adventure timer started');
+  
+  // Execute immediately then start timer
+  await executeAdventure();
+  
+  function scheduleAdventure() {
+    if (!farmStates.adventure.enabled || !farmEnabled) return;
+    
+    farmTimers.adventure = setTimeout(async () => {
+      await executeAdventure();
+      scheduleAdventure();
+    }, DEFAULT_COOLDOWNS.adventure);
+  }
+  
+  scheduleAdventure();
+}
 
+async function executeAdventure() {
+  if (farmStates.adventure.executing || !farmEnabled || !currentChannel) return;
+  
+  farmStates.adventure.executing = true;
+  console.log('🗺️ Executing adventure...');
+  
   try {
-    console.log('🗺️ Performing adventure...');
     const slashResponse = await currentChannel.sendSlash('555955826880413696', 'adventure');
-
+    
     if (slashResponse) {
       try {
         const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
-
-        if (botResponse.content) {
-          const hpData = parseHP(botResponse.content);
-          if (hpData && hpData.current < 50) {
-            console.log(`🩹 HP is low (${hpData.current}/${hpData.max}), triggering auto heal...`);
-            await performHeal();
-          }
+        
+        // Check for dynamic cooldown
+        const cooldownMs = checkForCooldown(botResponse);
+        if (cooldownMs > 0) {
+          console.log(`⏰ Adventure cooldown detected: ${Math.ceil(cooldownMs/1000)}s`);
+          // Reschedule with actual cooldown
+          farmStates.adventure.enabled = false;
+          if (farmTimers.adventure) clearTimeout(farmTimers.adventure);
+          farmTimers.adventure = setTimeout(async () => {
+            await executeAdventure();
+            startAdventureTimer(); // Return to normal schedule
+          }, cooldownMs + 2000);
+          farmStates.adventure.executing = false;
+          return;
         }
-
-        // Check for cooldown in embeds
-        let isCooldown = false;
-        let retryDelay = 0;
-
-        if (botResponse.embeds && botResponse.embeds.length > 0) {
-          for (const embed of botResponse.embeds) {
-            if (embed.title && embed.title.includes('wait at least')) {
-              isCooldown = true;
-              const cooldownMs = parseCooldown(embed.title);
-              if (cooldownMs) {
-                retryDelay = cooldownMs + 2000; // Add 2 second buffer
-                console.log(`⏰ Adventure on cooldown, retrying in ${Math.ceil(retryDelay/1000)} seconds...`);
-              }
-              break;
-            }
-          }
-        }
-
-        if (isCooldown && retryDelay > 0) {
-          // Update lastAdventureTime untuk retry setelah cooldown
-          lastAdventureTime = Date.now() + retryDelay - 3600000; // Adjust untuk retry setelah cooldown
-          console.log(`⏰ Adventure cooldown ${Math.ceil(retryDelay/1000)}s, will retry in next cycle`);
-        }
-
+        
+        // Check HP and trigger heal if needed
+        await checkAndHeal(botResponse);
+        console.log('✅ Adventure completed successfully');
+        
       } catch (responseError) {
-        console.log('⚠️ No adventure response received');
+        console.log('⚠️ Adventure: No response received');
       }
     }
   } catch (error) {
-    console.error('❌ Failed to perform adventure:', error);
+    console.error('❌ Adventure execution failed:', error);
+  } finally {
+    farmStates.adventure.executing = false;
   }
 }
 
-async function performChop() {
-  if (!farmEnabled || !currentChannel) return;
+function stopAdventureTimer() {
+  farmStates.adventure.enabled = false;
+  if (farmTimers.adventure) {
+    clearTimeout(farmTimers.adventure);
+    farmTimers.adventure = null;
+  }
+  console.log('🛑 Adventure timer stopped');
+}
 
+// Independent Chop System
+async function startChopTimer() {
+  if (farmStates.chop.enabled) return;
+  
+  farmStates.chop.enabled = true;
+  console.log('🪓 Chop timer started');
+  
+  // Execute immediately then start timer
+  await executeChop();
+  
+  function scheduleChop() {
+    if (!farmStates.chop.enabled || !farmEnabled) return;
+    
+    farmTimers.chop = setTimeout(async () => {
+      await executeChop();
+      scheduleChop();
+    }, DEFAULT_COOLDOWNS.chop);
+  }
+  
+  scheduleChop();
+}
+
+async function executeChop() {
+  if (farmStates.chop.executing || !farmEnabled || !currentChannel) return;
+  
+  farmStates.chop.executing = true;
+  console.log('🪓 Executing chop...');
+  
   try {
-    console.log('🪓 Performing chop...');
     const slashResponse = await currentChannel.sendSlash('555955826880413696', 'chop');
-
+    
     if (slashResponse) {
       try {
         const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
-
-        // Check for cooldown in embeds
-        let isCooldown = false;
-        let retryDelay = 0;
-
-        if (botResponse.embeds && botResponse.embeds.length > 0) {
-          for (const embed of botResponse.embeds) {
-            if (embed.title && embed.title.includes('wait at least')) {
-              isCooldown = true;
-              const cooldownMs = parseCooldown(embed.title);
-              if (cooldownMs) {
-                retryDelay = cooldownMs + 2000; // Add 2 second buffer
-                console.log(`⏰ Chop on cooldown, retrying in ${Math.ceil(retryDelay/1000)} seconds...`);
-              }
-              break;
-            }
-          }
+        
+        // Check for dynamic cooldown
+        const cooldownMs = checkForCooldown(botResponse);
+        if (cooldownMs > 0) {
+          console.log(`⏰ Chop cooldown detected: ${Math.ceil(cooldownMs/1000)}s`);
+          // Reschedule with actual cooldown
+          farmStates.chop.enabled = false;
+          if (farmTimers.chop) clearTimeout(farmTimers.chop);
+          farmTimers.chop = setTimeout(async () => {
+            await executeChop();
+            startChopTimer(); // Return to normal schedule
+          }, cooldownMs + 2000);
+          farmStates.chop.executing = false;
+          return;
         }
-
-        if (isCooldown && retryDelay > 0) {
-          // Update lastChopTime untuk retry setelah cooldown
-          lastChopTime = Date.now() + retryDelay - 300000; // Adjust untuk retry setelah cooldown  
-          console.log(`⏰ Chop cooldown ${Math.ceil(retryDelay/1000)}s, will retry in next cycle`);
-        }
-
+        
+        console.log('✅ Chop completed successfully');
+        
       } catch (responseError) {
-        console.log('⚠️ No chop response received');
+        console.log('⚠️ Chop: No response received');
       }
     }
   } catch (error) {
-    console.error('❌ Failed to perform chop:', error);
+    console.error('❌ Chop execution failed:', error);
+  } finally {
+    farmStates.chop.executing = false;
   }
 }
 
-async function performHunt() {
-  if (!farmEnabled || !currentChannel) return;
+function stopChopTimer() {
+  farmStates.chop.enabled = false;
+  if (farmTimers.chop) {
+    clearTimeout(farmTimers.chop);
+    farmTimers.chop = null;
+  }
+  console.log('🛑 Chop timer stopped');
+}
 
+// Independent Hunt System
+async function startHuntTimer() {
+  if (farmStates.hunt.enabled) return;
+  
+  farmStates.hunt.enabled = true;
+  console.log('🏹 Hunt timer started');
+  
+  // Execute immediately then start timer
+  await executeHunt();
+  
+  function scheduleHunt() {
+    if (!farmStates.hunt.enabled || !farmEnabled) return;
+    
+    farmTimers.hunt = setTimeout(async () => {
+      await executeHunt();
+      scheduleHunt();
+    }, DEFAULT_COOLDOWNS.hunt);
+  }
+  
+  scheduleHunt();
+}
+
+async function executeHunt() {
+  if (farmStates.hunt.executing || !farmEnabled || !currentChannel) return;
+  
+  farmStates.hunt.executing = true;
+  console.log('🏹 Executing hunt...');
+  
   try {
-    console.log('🏹 Performing hunt...'); // Added log for hunt
     const slashResponse = await currentChannel.sendSlash('555955826880413696', 'hunt');
-
+    
     if (slashResponse) {
       try {
         const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
-
-        if (botResponse.content) {
-          const hpData = parseHP(botResponse.content);
-          if (hpData && hpData.current < 50) {
-            console.log(`🩹 HP is low (${hpData.current}/${hpData.max}), triggering auto heal...`);
-            await performHeal();
-          }
+        
+        // Check for dynamic cooldown
+        const cooldownMs = checkForCooldown(botResponse);
+        if (cooldownMs > 0) {
+          console.log(`⏰ Hunt cooldown detected: ${Math.ceil(cooldownMs/1000)}s`);
+          // Reschedule with actual cooldown
+          farmStates.hunt.enabled = false;
+          if (farmTimers.hunt) clearTimeout(farmTimers.hunt);
+          farmTimers.hunt = setTimeout(async () => {
+            await executeHunt();
+            startHuntTimer(); // Return to normal schedule
+          }, cooldownMs + 2000);
+          farmStates.hunt.executing = false;
+          return;
         }
-
-        // Check for cooldown in embeds
-        let isCooldown = false;
-        let retryDelay = 0;
-
-        if (botResponse.embeds && botResponse.embeds.length > 0) {
-          for (const embed of botResponse.embeds) {
-            if (embed.title && embed.title.includes('wait at least')) {
-              isCooldown = true;
-              const cooldownMs = parseCooldown(embed.title);
-              if (cooldownMs) {
-                retryDelay = cooldownMs + 2000;
-              }
-              break;
-            }
-          }
-        }
-
-        if (isCooldown && retryDelay > 0) {
-          // Update lastHuntTime untuk retry setelah cooldown
-          lastHuntTime = Date.now() + retryDelay - 60000; // Adjust untuk retry setelah cooldown
-          console.log(`⏰ Hunt cooldown ${Math.ceil(retryDelay/1000)}s, will retry in next cycle`);
-        } else if (!isCooldown) {
-          // No cooldown detected, use default 1 minute cooldown
-          lastHuntTime = Date.now();
-          console.log('✅ Hunt completed, next hunt in 1 minute');
-        }
-
+        
+        // Check HP and trigger heal if needed
+        await checkAndHeal(botResponse);
+        console.log('✅ Hunt completed successfully');
+        
       } catch (responseError) {
-        console.log('⚠️ No hunt response received');
+        console.log('⚠️ Hunt: No response received');
       }
     }
   } catch (error) {
-    console.error('❌ Failed to perform hunt:', error);
+    console.error('❌ Hunt execution failed:', error);
+  } finally {
+    farmStates.hunt.executing = false;
   }
 }
 
-client.on('ready', async () => {
-  console.log(`🔗 Logged in as: ${client.user.username}`);
-  console.log('Selfbot ready!');
-  console.log('Commands: .on rpc, .off rpc, .on farm, .off farm, .debug <command>, .on debug, .off debug');
+function stopHuntTimer() {
+  farmStates.hunt.enabled = false;
+  if (farmTimers.hunt) {
+    clearTimeout(farmTimers.hunt);
+    farmTimers.hunt = null;
+  }
+  console.log('🛑 Hunt timer stopped');
+}
 
-  extendURL = await Discord.RichPresence.getExternal(
-    client,
-    '1380551344515055667',
-    'https://files.catbox.moe/nawqku.png',
-  );
-});
+// HP-based Heal System (no cooldown, only HP checking)
+async function triggerHeal() {
+  if (farmStates.heal.executing) {
+    console.log('🩹 Heal already in progress, skipping...');
+    return;
+  }
+  
+  farmStates.heal.executing = true;
+  console.log('🩹 Executing emergency heal...');
+  
+  try {
+    const slashResponse = await currentChannel.sendSlash('555955826880413696', 'heal');
+    
+    if (slashResponse) {
+      try {
+        const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
+        console.log('✅ Heal completed successfully');
+        
+        // Check if heal was successful by parsing response
+        if (botResponse.content) {
+          const healMatch = botResponse.content.match(/healed.*?(\d+).*?hp/i);
+          if (healMatch) {
+            console.log(`🩹 Healed ${healMatch[1]} HP successfully`);
+          }
+        }
+        
+      } catch (responseError) {
+        console.log('⚠️ Heal: No response received');
+      }
+    }
+  } catch (error) {
+    console.error('❌ Heal execution failed:', error);
+  } finally {
+    // Always reset executing state immediately, no cooldown
+    farmStates.heal.executing = false;
+  }
+}
 
-// Optimized auto-event handling - replace your handleAutoEvent function with this:
+// Updated main farm functions
+async function startFarm(channel) {
+  if (farmEnabled) return;
 
+  farmEnabled = true;
+  currentChannel = channel;
+  console.log('🚜 Independent Auto Farm Started');
+  if (currentChannel) {
+    currentChannel.send('🚜 **Independent Auto Farm Started** - Each command runs on its own timer').catch(() => {});
+  }
+
+  // Initial heal before starting all timers
+  await triggerHeal();
+  
+  // Wait 3 seconds after heal then start all timers
+  setTimeout(() => {
+    startAdventureTimer();
+    startChopTimer();
+    startHuntTimer();
+    console.log('✅ All farm timers are now running independently');
+    console.log('🩹 Heal system: HP-based triggering (60% threshold)');
+  }, 3000);
+}
+
+function stopFarm() {
+  if (!farmEnabled) return;
+
+  farmEnabled = false;
+  
+  // Stop all individual timers
+  stopAdventureTimer();
+  stopChopTimer();
+  stopHuntTimer();
+  
+  // Reset heal state
+  farmStates.heal.executing = false;
+
+  console.log('🛑 Independent Auto Farm Stopped');
+  if (currentChannel) {
+    currentChannel.send('🛑 **Independent Auto Farm Stopped** - All timers cleared').catch(() => {});
+  }
+}
+
+// Status command to check all timers
+function getFarmStatus() {
+  if (!farmEnabled) return '🛑 Farm is stopped';
+  
+  let status = '🚜 **Independent Farm Status:**\n';
+  status += `🗺️ Adventure: ${farmStates.adventure.enabled ? (farmStates.adventure.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
+  status += `🪓 Chop: ${farmStates.chop.enabled ? (farmStates.chop.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
+  status += `🏹 Hunt: ${farmStates.hunt.enabled ? (farmStates.hunt.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
+  status += `🩹 Heal: ${farmStates.heal.executing ? 'Healing...' : 'Ready (HP-based trigger)'}`;
+  
+  return status;
+}
+
+// Auto Event Handler (unchanged)
 async function handleAutoEvent(message) {
   if (!message.author.id === '555955826880413696') return;
 
@@ -433,7 +558,6 @@ async function handleAutoEvent(message) {
             setTimeout(async () => {
               try {
                 if (message.components && message.components.length > 0) {
-                  // Find the button with CATCH label or coin-related customId
                   let buttonCustomId = null;
                   for (const row of message.components) {
                     for (const comp of row.components || []) {
@@ -480,7 +604,6 @@ async function handleAutoEvent(message) {
             setTimeout(async () => {
               try {
                 if (message.components && message.components.length > 0) {
-                  // Use the working method - customId only
                   await message.clickButton('epictree_join');
                   console.log('✅ Auto-CUT button clicked successfully');
                 } else {
@@ -509,7 +632,6 @@ async function handleAutoEvent(message) {
             setTimeout(async () => {
               try {
                 if (message.components && message.components.length > 0) {
-                  // Find the button with LURE label or megalodon-related customId
                   let buttonCustomId = null;
                   for (const row of message.components) {
                     for (const comp of row.components || []) {
@@ -556,7 +678,6 @@ async function handleAutoEvent(message) {
             setTimeout(async () => {
               try {
                 if (message.components && message.components.length > 0) {
-                  // Find the button with JOIN label or arena-related customId
                   let buttonCustomId = null;
                   for (const row of message.components) {
                     for (const comp of row.components || []) {
@@ -603,7 +724,6 @@ async function handleAutoEvent(message) {
             setTimeout(async () => {
               try {
                 if (message.components && message.components.length > 0) {
-                  // Find the button with FIGHT label or fight-related customId
                   let buttonCustomId = null;
                   for (const row of message.components) {
                     for (const comp of row.components || []) {
@@ -701,12 +821,24 @@ async function logBotDebugInfo(message) {
   }
 }
 
+client.on('ready', async () => {
+  console.log(`🔗 Logged in as: ${client.user.username}`);
+  console.log('Selfbot ready!');
+  console.log('Commands: .on rpc, .off rpc, .on farm, .off farm, .farm status, .debug <command>, .on debug, .off debug');
+
+  extendURL = await Discord.RichPresence.getExternal(
+    client,
+    '1380551344515055667',
+    'https://files.catbox.moe/nawqku.png',
+  );
+});
+
 client.on('messageCreate', async (message) => {
   // Process auto-events regardless of the channel
   if (message.author.id === '555955826880413696') {
     await handleAutoEvent(message);
-    await logBotDebugInfo(message); // Log debug info separately
-    return; // Don't process bot messages as user commands
+    await logBotDebugInfo(message);
+    return;
   }
 
   if (message.author.id !== client.user.id) return;
@@ -728,6 +860,10 @@ client.on('messageCreate', async (message) => {
     await message.delete().catch(() => {});
     currentChannel = message.channel;
     stopFarm();
+  } else if (content === '.farm status') {
+    await message.delete().catch(() => {});
+    const status = getFarmStatus();
+    message.channel.send(status).catch(() => {});
   } else if (content === '.on debug') {
     await message.delete().catch(() => {});
     currentChannel = message.channel;
@@ -793,7 +929,6 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-
 if (!process.env.DISCORD_TOKEN) {
   console.error('Error: DISCORD_TOKEN not found in environment variables.');
   process.exit(1);
@@ -803,9 +938,12 @@ process.on('exit', () => {
   if (presenceTimer) {
     clearTimeout(presenceTimer);
   }
-  if (farmTimer) {
-    clearInterval(farmTimer);
-  }
+  // Clean up all farm timers
+  Object.values(farmTimers).forEach(timer => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  });
 });
 
 client.login(process.env.DISCORD_TOKEN);
