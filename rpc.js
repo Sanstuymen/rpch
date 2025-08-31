@@ -220,23 +220,36 @@ function parseCooldown(title) {
 
 let lastAdventureTime = 0;
 let lastChopTime = 0;
+let lastHuntTime = 0;
 
 async function performFarm() {
   if (!farmEnabled || !currentChannel) return;
 
   const currentTime = Date.now();
 
-  // Check if we should do adventure (1 hour = 3600000ms)
+  // Priority 1: Adventure (setiap 1 jam)
   if (currentTime - lastAdventureTime >= 3600000) {
     await performAdventure();
     lastAdventureTime = currentTime;
-  } else if (currentTime - lastChopTime >= 300000) { // 5 minutes = 300000ms
+    return;
+  }
+
+  // Priority 2: Chop (setiap 5 menit)
+  if (currentTime - lastChopTime >= 300000) {
     await performChop();
     lastChopTime = currentTime;
-  } else {
-    // Do hunt
-    await performHunt();
+    return;
   }
+
+  // Priority 3: Hunt (setiap 1 menit)
+  if (currentTime - lastHuntTime >= 60000) {
+    await performHunt();
+    lastHuntTime = currentTime;
+    return;
+  }
+
+  // Jika semua masih cooldown, tunggu sebentar
+  console.log('⏳ All commands on cooldown, waiting...');
 }
 
 async function performAdventure() {
