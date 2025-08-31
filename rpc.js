@@ -203,6 +203,52 @@ function checkForCooldown(botResponse) {
   return 0;
 }
 
+// Helper function to check for EPIC GUARD and stop farm
+function checkForEpicGuard(botResponse) {
+  // Check in content
+  if (botResponse.content && 
+      (botResponse.content.includes('EPIC GUARD: stop there') || 
+       botResponse.content.includes('We have to check you are actually playing'))) {
+    return true;
+  }
+  
+  // Check in embeds
+  if (botResponse.embeds && botResponse.embeds.length > 0) {
+    for (const embed of botResponse.embeds) {
+      if (embed.title && 
+          (embed.title.includes('EPIC GUARD') || 
+           embed.title.includes('stop there') ||
+           embed.title.includes('We have to check you are actually playing'))) {
+        return true;
+      }
+      
+      if (embed.description && 
+          (embed.description.includes('EPIC GUARD') || 
+           embed.description.includes('stop there') ||
+           embed.description.includes('We have to check you are actually playing'))) {
+        return true;
+      }
+      
+      if (embed.fields && embed.fields.length > 0) {
+        for (const field of embed.fields) {
+          if ((field.name && 
+               (field.name.includes('EPIC GUARD') || 
+                field.name.includes('stop there') ||
+                field.name.includes('We have to check you are actually playing'))) ||
+              (field.value && 
+               (field.value.includes('EPIC GUARD') || 
+                field.value.includes('stop there') ||
+                field.value.includes('We have to check you are actually playing')))) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  
+  return false;
+}
+
 // Helper function to check HP and trigger heal if needed
 async function checkAndHeal(botResponse) {
   if (!botResponse.content) return;
@@ -258,6 +304,17 @@ async function executeAdventure() {
     if (slashResponse) {
       try {
         const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
+        
+        // Check for EPIC GUARD first
+        if (checkForEpicGuard(botResponse)) {
+          console.log('🚨 EPIC GUARD DETECTED! Auto-stopping farm...');
+          if (currentChannel) {
+            currentChannel.send('🚨 **EPIC GUARD DETECTED!** 👮‍♂️ Auto-stopping farm for safety').catch(() => {});
+          }
+          stopFarm();
+          farmStates.adventure.executing = false;
+          return;
+        }
         
         // Check for dynamic cooldown
         const cooldownMs = checkForCooldown(botResponse);
@@ -333,6 +390,17 @@ async function executeChop() {
       try {
         const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
         
+        // Check for EPIC GUARD first
+        if (checkForEpicGuard(botResponse)) {
+          console.log('🚨 EPIC GUARD DETECTED! Auto-stopping farm...');
+          if (currentChannel) {
+            currentChannel.send('🚨 **EPIC GUARD DETECTED!** 👮‍♂️ Auto-stopping farm for safety').catch(() => {});
+          }
+          stopFarm();
+          farmStates.chop.executing = false;
+          return;
+        }
+        
         // Check for dynamic cooldown
         const cooldownMs = checkForCooldown(botResponse);
         if (cooldownMs > 0) {
@@ -405,6 +473,17 @@ async function executeHunt() {
       try {
         const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
         
+        // Check for EPIC GUARD first
+        if (checkForEpicGuard(botResponse)) {
+          console.log('🚨 EPIC GUARD DETECTED! Auto-stopping farm...');
+          if (currentChannel) {
+            currentChannel.send('🚨 **EPIC GUARD DETECTED!** 👮‍♂️ Auto-stopping farm for safety').catch(() => {});
+          }
+          stopFarm();
+          farmStates.hunt.executing = false;
+          return;
+        }
+        
         // Check for dynamic cooldown
         const cooldownMs = checkForCooldown(botResponse);
         if (cooldownMs > 0) {
@@ -460,6 +539,18 @@ async function triggerHeal() {
     if (slashResponse) {
       try {
         const botResponse = await waitForBotResponse(slashResponse, '555955826880413696', 15000);
+        
+        // Check for EPIC GUARD first
+        if (checkForEpicGuard(botResponse)) {
+          console.log('🚨 EPIC GUARD DETECTED! Auto-stopping farm...');
+          if (currentChannel) {
+            currentChannel.send('🚨 **EPIC GUARD DETECTED!** 👮‍♂️ Auto-stopping farm for safety').catch(() => {});
+          }
+          stopFarm();
+          farmStates.heal.executing = false;
+          return;
+        }
+        
         console.log('✅ Heal completed successfully');
         
         // Check if heal was successful by parsing response
@@ -503,6 +594,7 @@ async function startFarm(channel) {
     startHuntTimer();
     console.log('✅ All farm timers are now running independently');
     console.log('🩹 Heal system: HP-based triggering (60% threshold)');
+    console.log('🚨 EPIC GUARD detection: Auto-stop enabled');
   }, 3000);
 }
 
@@ -533,12 +625,13 @@ function getFarmStatus() {
   status += `🗺️ Adventure: ${farmStates.adventure.enabled ? (farmStates.adventure.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
   status += `🪓 Chop: ${farmStates.chop.enabled ? (farmStates.chop.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
   status += `🏹 Hunt: ${farmStates.hunt.enabled ? (farmStates.hunt.executing ? 'Executing...' : 'Active') : 'Stopped'}\n`;
-  status += `🩹 Heal: ${farmStates.heal.executing ? 'Healing...' : 'Ready (HP-based trigger)'}`;
+  status += `🩹 Heal: ${farmStates.heal.executing ? 'Healing...' : 'Ready (HP-based trigger)'}\n`;
+  status += `🚨 EPIC GUARD: Auto-stop protection enabled`;
   
   return status;
 }
 
-// Auto Event Handler (unchanged)
+// Auto Event Handler (updated with EPIC coin event)
 async function handleAutoEvent(message) {
   if (!message.author.id === '555955826880413696') return;
 
@@ -548,6 +641,56 @@ async function handleAutoEvent(message) {
     for (const embed of message.embeds) {
       if (embed.fields && embed.fields.length > 0) {
         for (const field of embed.fields) {
+
+          // EPIC COIN EVENT (NEW)
+          if (field.name && field.name.includes(":EPICcoin: OOPS! God accidentally dropped an EPIC coin") &&
+              field.value && field.value.includes("I wonder who will be the lucky player to get it??")) {
+            isAutoCatchEvent = true;
+            console.log('🪙 EPIC COIN EVENT DETECTED! Auto-catching...');
+
+            setTimeout(async () => {
+              try {
+                if (message.components && message.components.length > 0) {
+                  let buttonCustomId = null;
+                  for (const row of message.components) {
+                    for (const comp of row.components || []) {
+                      if (comp.label && (comp.label.includes('CATCH') || comp.label.includes('GET'))) {
+                        buttonCustomId = comp.customId;
+                        break;
+                      }
+                      if (comp.customId && (comp.customId.includes('catch') || 
+                          comp.customId.includes('coin') || 
+                          comp.customId.includes('epic'))) {
+                        buttonCustomId = comp.customId;
+                        break;
+                      }
+                    }
+                    if (buttonCustomId) break;
+                  }
+
+                  if (buttonCustomId) {
+                    await message.clickButton(buttonCustomId);
+                    console.log('✅ Auto-EPIC COIN button clicked successfully');
+                  } else {
+                    await message.channel.send('CATCH');
+                    console.log('✅ Auto-EPIC COIN typed successfully (no button found)');
+                  }
+                } else {
+                  await message.channel.send('CATCH');
+                  console.log('✅ Auto-EPIC COIN typed successfully');
+                }
+              } catch (error) {
+                console.error('❌ EPIC COIN failed:', error.message);
+                try {
+                  await message.channel.send('CATCH');
+                  console.log('✅ Auto-EPIC COIN typed successfully (fallback)');
+                } catch (typeError) {
+                  console.error('❌ Failed to auto-EPIC COIN:', typeError);
+                }
+              }
+            }, 1000);
+            break;
+          }
 
           // COIN RAIN EVENT
           if (field.name && field.name.includes("IT'S RAINING COINS") &&
