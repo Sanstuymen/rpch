@@ -431,7 +431,7 @@ async function handleAutoEvent(message) {
           if (field.name && field.name.includes("IT'S RAINING COINS") &&
               field.value && field.value.includes("Type **CATCH**")) {
             isAutoCatchEvent = true;
-            console.log('💰 COIN RAIN EVENT DETECTED! Auto-catching...');
+            console.log('🪙 COIN RAIN EVENT DETECTED! Auto-catching...');
 
             setTimeout(async () => {
               try {
@@ -505,7 +505,7 @@ async function handleAutoEvent(message) {
 
           // MEGALODON EVENT
           if (field.name && field.name.includes("A MEGALODON HAS SPAWNED") &&
-              field.value && field.value.includes("Type **LURE**")) {
+              field.value && field.value.includes("Type LURE")) {
             isAutoCatchEvent = true;
             console.log('🦈 MEGALODON EVENT DETECTED! Auto-luring...');
 
@@ -544,6 +544,100 @@ async function handleAutoEvent(message) {
                   console.log('✅ Auto-LURE typed successfully (fallback)');
                 } catch (typeError) {
                   console.error('❌ Failed to auto-LURE:', typeError);
+                }
+              }
+            }, 1000);
+            break;
+          }
+
+          // ARENA EVENT
+          if (field.name && field.name.includes("Type join to join the arena!") &&
+              field.value && field.value.includes("arena cookies")) {
+            isAutoCatchEvent = true;
+            console.log('⚔️ ARENA EVENT DETECTED! Auto-joining...');
+
+            setTimeout(async () => {
+              try {
+                if (message.components && message.components.length > 0) {
+                  // Find the button with JOIN label or arena-related customId
+                  let buttonCustomId = null;
+                  for (const row of message.components) {
+                    for (const comp of row.components || []) {
+                      if (comp.label === 'JOIN' ||
+                          comp.customId?.includes('join') ||
+                          comp.customId?.includes('arena')) {
+                        buttonCustomId = comp.customId;
+                        break;
+                      }
+                    }
+                    if (buttonCustomId) break;
+                  }
+
+                  if (buttonCustomId) {
+                    await message.clickButton(buttonCustomId);
+                    console.log('✅ Auto-JOIN arena button clicked successfully');
+                  } else {
+                    await message.channel.send('JOIN');
+                    console.log('✅ Auto-JOIN arena typed successfully (no button found)');
+                  }
+                } else {
+                  await message.channel.send('JOIN');
+                  console.log('✅ Auto-JOIN arena typed successfully');
+                }
+              } catch (error) {
+                console.error('❌ JOIN arena failed:', error.message);
+                try {
+                  await message.channel.send('JOIN');
+                  console.log('✅ Auto-JOIN arena typed successfully (fallback)');
+                } catch (typeError) {
+                  console.error('❌ Failed to auto-JOIN arena:', typeError);
+                }
+              }
+            }, 1000);
+            break;
+          }
+
+          // MINIBOSS EVENT
+          if (field.name && field.name.includes("Type fight to help and get a reward!") &&
+              field.value && field.value.includes("CHANCE TO WIN")) {
+            isAutoCatchEvent = true;
+            console.log('👹 MINIBOSS EVENT DETECTED! Auto-fighting...');
+
+            setTimeout(async () => {
+              try {
+                if (message.components && message.components.length > 0) {
+                  // Find the button with FIGHT label or fight-related customId
+                  let buttonCustomId = null;
+                  for (const row of message.components) {
+                    for (const comp of row.components || []) {
+                      if (comp.label === 'FIGHT' ||
+                          comp.customId?.includes('fight') ||
+                          comp.customId?.includes('miniboss')) {
+                        buttonCustomId = comp.customId;
+                        break;
+                      }
+                    }
+                    if (buttonCustomId) break;
+                  }
+
+                  if (buttonCustomId) {
+                    await message.clickButton(buttonCustomId);
+                    console.log('✅ Auto-FIGHT miniboss button clicked successfully');
+                  } else {
+                    await message.channel.send('FIGHT');
+                    console.log('✅ Auto-FIGHT miniboss typed successfully (no button found)');
+                  }
+                } else {
+                  await message.channel.send('FIGHT');
+                  console.log('✅ Auto-FIGHT miniboss typed successfully');
+                }
+              } catch (error) {
+                console.error('❌ FIGHT miniboss failed:', error.message);
+                try {
+                  await message.channel.send('FIGHT');
+                  console.log('✅ Auto-FIGHT miniboss typed successfully (fallback)');
+                } catch (typeError) {
+                  console.error('❌ Failed to auto-FIGHT miniboss:', typeError);
                 }
               }
             }, 1000);
