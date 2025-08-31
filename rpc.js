@@ -227,29 +227,26 @@ async function performFarm() {
 
   const currentTime = Date.now();
 
-  // Priority 1: Adventure (setiap 1 jam)
+  // Execute all commands, check cooldown in each function
+  console.log('🚜 Starting farm cycle - executing all commands...');
+  
+  // Execute adventure (1 hour cooldown)
   if (currentTime - lastAdventureTime >= 3600000) {
     await performAdventure();
     lastAdventureTime = currentTime;
-    return;
   }
 
-  // Priority 2: Chop (setiap 5 menit)
+  // Execute chop (5 minute cooldown)  
   if (currentTime - lastChopTime >= 300000) {
     await performChop();
     lastChopTime = currentTime;
-    return;
   }
 
-  // Priority 3: Hunt (setiap 1 menit)
+  // Execute hunt (1 minute cooldown)
   if (currentTime - lastHuntTime >= 60000) {
     await performHunt();
     lastHuntTime = currentTime;
-    return;
   }
-
-  // Jika semua masih cooldown, tunggu sebentar
-  console.log('⏳ All commands on cooldown, waiting...');
 }
 
 async function performAdventure() {
@@ -290,12 +287,9 @@ async function performAdventure() {
         }
 
         if (isCooldown && retryDelay > 0) {
-          setTimeout(() => {
-            if (farmEnabled) {
-              console.log('🔄 Retrying adventure after cooldown...');
-              performAdventure();
-            }
-          }, retryDelay);
+          // Update lastAdventureTime untuk retry setelah cooldown
+          lastAdventureTime = Date.now() + retryDelay - 3600000; // Adjust untuk retry setelah cooldown
+          console.log(`⏰ Adventure cooldown ${Math.ceil(retryDelay/1000)}s, will retry in next cycle`);
         }
 
       } catch (responseError) {
@@ -337,12 +331,9 @@ async function performChop() {
         }
 
         if (isCooldown && retryDelay > 0) {
-          setTimeout(() => {
-            if (farmEnabled) {
-              console.log('🔄 Retrying chop after cooldown...');
-              performChop();
-            }
-          }, retryDelay);
+          // Update lastChopTime untuk retry setelah cooldown
+          lastChopTime = Date.now() + retryDelay - 300000; // Adjust untuk retry setelah cooldown  
+          console.log(`⏰ Chop cooldown ${Math.ceil(retryDelay/1000)}s, will retry in next cycle`);
         }
 
       } catch (responseError) {
@@ -391,20 +382,13 @@ async function performHunt() {
         }
 
         if (isCooldown && retryDelay > 0) {
-          setTimeout(() => {
-            if (farmEnabled) {
-              console.log('🔄 Retrying hunt after cooldown...');
-              performHunt();
-            }
-          }, retryDelay);
+          // Update lastHuntTime untuk retry setelah cooldown
+          lastHuntTime = Date.now() + retryDelay - 60000; // Adjust untuk retry setelah cooldown
+          console.log(`⏰ Hunt cooldown ${Math.ceil(retryDelay/1000)}s, will retry in next cycle`);
         } else if (!isCooldown) {
-          // No cooldown detected, use default cooldown (1 minute for hunt)
-          setTimeout(() => {
-            if (farmEnabled) {
-              console.log('🔄 Retrying hunt after default cooldown (1 minute)...');
-              performHunt();
-            }
-          }, 60000); // 1 minute default cooldown
+          // No cooldown detected, use default 1 minute cooldown
+          lastHuntTime = Date.now();
+          console.log('✅ Hunt completed, next hunt in 1 minute');
         }
 
       } catch (responseError) {
