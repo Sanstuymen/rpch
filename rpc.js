@@ -386,8 +386,8 @@ async function handleAutoEvent(message) {
                     })));
                   });
 
-                  // Try to click the button (no params for single button)
-                  await message.clickButton();
+                  // Try to click the button 
+                  await message.clickButton(null, null, 'coinrain_join');
                   console.log('✅ Auto-CATCH button clicked successfully');
                 } else {
                   console.log('⚠️ No buttons found, typing CATCH...');
@@ -430,7 +430,7 @@ async function handleAutoEvent(message) {
                   });
 
                   // Try to click the button (no params for single button)
-                  await message.clickButton();
+                  await message.clickButton(null, null, 'epictree_join')
                   console.log('✅ Auto-CUT button clicked successfully');
                 } else {
                   console.log('⚠️ No buttons found, typing CUT...');
