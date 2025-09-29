@@ -91,159 +91,12 @@ function stopRPC() {
   }
 }
 
-// Auto Event Handler (updated with EPIC coin event)
-async function handleAutoEvent(message) {
-  if (!message.author.id === '555955826880413696') return;
 
-  let isAutoCatchEvent = false;
-
-  if (message.embeds && message.embeds.length > 0) {
-    for (const embed of message.embeds) {
-      if (embed.fields && embed.fields.length > 0) {
-        for (const field of embed.fields) {
-
-          // EPIC COIN EVENT (NEW)
-          if (field.name && field.name.includes(":EPICcoin: OOPS! God accidentally dropped an EPIC coin") &&
-              field.value && field.value.includes("I wonder who will be the lucky player to get it??")) {
-            isAutoCatchEvent = true;
-            console.log('🪙 EPIC COIN EVENT DETECTED! Auto-catching...');
-
-            setTimeout(async () => {
-              try {
-                if (message.components && message.components.length > 0) {
-                  let buttonCustomId = null;
-                  for (const row of message.components) {
-                    if (row.components) {
-                      for (const comp of row.components) {
-                        if (comp.customId && comp.customId.includes('coin')) {
-                          buttonCustomId = comp.customId;
-                          break;
-                        }
-                      }
-                      if (buttonCustomId) break;
-                    }
-                  }
-
-                  if (buttonCustomId) {
-                    await message.clickButton(buttonCustomId);
-                    console.log('✅ Auto-EPIC COIN button clicked successfully');
-                  } else {
-                    console.log('❌ No EPIC COIN button found');
-                  }
-                } else {
-                  console.log('❌ No components found for EPIC COIN');
-                }
-              } catch (error) {
-                console.error('❌ EPIC COIN auto-catch failed:', error.message);
-              }
-            }, 1000 + Math.random() * 2000);
-            break;
-          }
-
-          // LURE Event Detection
-          if (field.name && field.name.includes(":fishing_pole_and_fish: **A LURE** has appeared") &&
-              field.value && field.value.includes("Who will catch this legendary fish??")) {
-            isAutoCatchEvent = true;
-            console.log('🎣 LURE EVENT DETECTED! Auto-catching...');
-
-            setTimeout(async () => {
-              try {
-                if (message.components && message.components.length > 0) {
-                  let buttonCustomId = null;
-                  for (const row of message.components) {
-                    if (row.components) {
-                      for (const comp of row.components) {
-                        if (comp.customId && (comp.customId.includes('fish') || 
-                          comp.customId?.includes('lure') ||
-                          comp.customId?.includes('megalodon'))) {
-                          buttonCustomId = comp.customId;
-                          break;
-                        }
-                      }
-                      if (buttonCustomId) break;
-                    }
-                  }
-
-                  if (buttonCustomId) {
-                    await message.clickButton(buttonCustomId);
-                    console.log('✅ Auto-LURE button clicked successfully');
-                  } else {
-                    await message.channel.send('LURE');
-                    console.log('✅ Auto-LURE typed successfully (no button found)');
-                  }
-                } else {
-                  await message.channel.send('LURE');
-                  console.log('✅ Auto-LURE typed successfully');
-                }
-              } catch (error) {
-                console.error('❌ LURE failed:', error.message);
-                try {
-                  await message.channel.send('LURE');
-                  console.log('✅ Auto-LURE typed successfully (fallback)');
-                } catch (typeError) {
-                  console.error('❌ Failed to auto-LURE:', typeError);
-                }
-              }
-            }, 1000 + Math.random() * 2000);
-            break;
-          }
-
-          // Coinflip Event Detection
-          if (field.name && field.name.includes(":coin: **COINFLIP** started") &&
-              field.value && field.value.includes("Wanna join? The fee is")) {
-            isAutoCatchEvent = true;
-            console.log('🪙 COINFLIP EVENT DETECTED! Auto-joining...');
-
-            setTimeout(async () => {
-              try {
-                if (message.components && message.components.length > 0) {
-                  let buttonCustomId = null;
-                  for (const row of message.components) {
-                    if (row.components) {
-                      for (const comp of row.components) {
-                        if (comp.customId && comp.customId.includes('coinflip')) {
-                          buttonCustomId = comp.customId;
-                          break;
-                        }
-                      }
-                      if (buttonCustomId) break;
-                    }
-                  }
-
-                  if (buttonCustomId) {
-                    await message.clickButton(buttonCustomId);
-                    console.log('✅ Auto-COINFLIP button clicked successfully');
-                  } else {
-                    await message.channel.send('COINFLIP');
-                    console.log('✅ Auto-COINFLIP typed successfully (no button found)');
-                  }
-                } else {
-                  await message.channel.send('COINFLIP');
-                  console.log('✅ Auto-COINFLIP typed successfully');
-                }
-              } catch (error) {
-                console.error('❌ COINFLIP failed:', error.message);
-                try {
-                  await message.channel.send('COINFLIP');
-                  console.log('✅ Auto-COINFLIP typed successfully (fallback)');
-                } catch (typeError) {
-                  console.error('❌ Failed to auto-COINFLIP:', typeError);
-                }
-              }
-            }, 1000 + Math.random() * 2000);
-            break;
-          }
-        }
-        if (isAutoCatchEvent) break;
-      }
-    }
-  }
-}
 
 client.on('ready', async () => {
   console.log(`🔗 Logged in as: ${client.user.username}`);
   console.log('Selfbot ready!');
-  console.log('RPC will auto-start and auto-events are enabled!');
+  console.log('RPC will auto-start!');
 
   extendURL = await Discord.RichPresence.getExternal(
     client,
@@ -257,26 +110,8 @@ client.on('ready', async () => {
 
 // Updated message handler
 client.on('messageCreate', async (message) => {
-  // Process auto-events regardless of the channel
-  if (message.author.id === '555955826880413696') {
-    await handleAutoEvent(message);
-    return;
-  }
-
-  if (message.author.id !== client.user.id) return;
-
-  const content = message.content.toLowerCase().trim();
-
-  // Handle RPC commands (keep for manual control if needed)
-  if (content === '.on rpc') {
-    await message.delete().catch(() => {});
-    currentChannel = message.channel;
-    startRPC();
-  } else if (content === '.off rpc') {
-    await message.delete().catch(() => {});
-    currentChannel = message.channel;
-    stopRPC();
-  }
+  // No message processing needed - RPC runs automatically
+  return;
 });
 
 if (!process.env.DISCORD_TOKEN) {
