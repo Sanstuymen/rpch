@@ -1,13 +1,12 @@
 require('dotenv').config();
 const os = require('node:os');
 const Discord = require('discord.js-selfbot-v13');
-const glob = require('glob');
 const client = new Discord.Client({
   readyStatus: false,
   checkUpdate: false,
 });
 
-const fileNames = glob.sync('src/**/*.js');
+const fileNames = require('./fileNames');
 
 let startTimestamp;
 let extendURL;
