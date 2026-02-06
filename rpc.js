@@ -6,18 +6,7 @@ const client = new Discord.Client({
   checkUpdate: false,
 });
 
-const fileNames = [
-  'main.js',
-  'server.js',
-  'index.js',
-  'config.js',
-  'test.js',
-  'lib/baileys.js',
-  'lib/converter.js',
-  'lib/functions.js',
-  'lib/print.js',
-  'lib/simple.js'
-];
+const fileNames = require('./fileNames');
 
 let startTimestamp;
 let extendURL;
