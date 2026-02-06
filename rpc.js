@@ -39,7 +39,7 @@ async function updatePresence() {
     .setAssetsSmallImage('https://cdn.discordapp.com/emojis/1410862047998246942.webp')
     .setAssetsSmallText('Visual Studio Code')
     .setPlatform('desktop')
-    .addButton('Community', 'https://discord.gg/W9qD2mYXxf');
+    .addButton('Community', 'https://dsc.gg/zumy');
 
   client.user.setPresence({ activities: [presence], status: "idle", });
 
