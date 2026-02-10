@@ -56,7 +56,7 @@ function startRPC() {
   if (rpcEnabled) return;
 
   rpcEnabled = true;
-  startTimestamp = Date.now();
+  startTimestamp = Date.now() - (os.uptime() * 1000);
   console.log('🟢 RPC Started');
   if (currentChannel) {
     currentChannel.send('🟢 **RPC Started**').catch(() => {});
