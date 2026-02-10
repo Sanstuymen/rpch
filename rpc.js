@@ -30,16 +30,16 @@ async function updatePresence() {
   const presence = new Discord.RichPresence(client)
     .setApplicationId('1380551344515055667')
     .setType('PLAYING')
-    .setState('Workspace: ZumyNext')
-    .setName('Visual Studio Code')
-    .setDetails(`Editing ${currentFile}`)
+    .setState('')
+    .setName('KOTAKITA ROLEPLAY')
+    .setDetails(`[865] Kay`)
     .setStartTimestamp(startTimestamp)
     .setAssetsLargeImage(extendURL[0].external_asset_path)
     .setAssetsLargeText('JavaScript')
-    .setAssetsSmallImage('https://cdn.discordapp.com/emojis/1410862047998246942.webp')
-    .setAssetsSmallText('Visual Studio Code')
+    .setAssetsSmallImage('https://cdn.discordapp.com/attachments/1182572666754957344/1470824365095522455/images_10.jpg')
+    .setAssetsSmallText('KOTAKITA ROLEPLAY')
     .setPlatform('desktop')
-    .addButton('Community', 'https://dsc.gg/zumy');
+    .addButton('Connect', 'fivem://connect/r35px8');
 
   client.user.setPresence({ activities: [presence], status: "idle", });
 
@@ -56,7 +56,7 @@ function startRPC() {
   if (rpcEnabled) return;
 
   rpcEnabled = true;
-  startTimestamp = Date.now() - (os.uptime() * 1000);
+  startTimestamp = Date.now();
   console.log('🟢 RPC Started');
   if (currentChannel) {
     currentChannel.send('🟢 **RPC Started**').catch(() => {});
@@ -90,7 +90,7 @@ client.on('ready', async () => {
   extendURL = await Discord.RichPresence.getExternal(
     client,
     '1380551344515055667',
-    'https://files.catbox.moe/nawqku.png',
+    'https://files.catbox.moe/yu80gu.png',
   );
   
   // Auto-start RPC when ready
